@@ -1,0 +1,24 @@
+{
+  "name": "el-mcp",
+  "version": "0.1.0",
+  "description": "Self-hosted MCP for Danish electricity prices: two sentences about what you could have saved and what to shift tonight.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "stdio": "node --env-file-if-exists=.env src/stdio.ts",
+    "test": "node --test src/*.test.ts",
+    "demo": "node scripts/demo.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.8.0"
+  }
+}
