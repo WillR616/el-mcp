@@ -1,6 +1,8 @@
 export const VAT = 1.25;
 export const DEFAULT_MARKUP = 0.08;
 export const DEFAULT_FRACTION = 0.4;
+/** Share of the perfect-foresight saving that day-ahead forecasts actually capture. */
+export const DEFAULT_FORESIGHT = 0.85;
 export const YEAR_DAYS = 365;
 
 /** Copenhagen local hour: YYYY-MM-DDTHH */
@@ -26,6 +28,7 @@ export type YearResult = {
   days: number;
   scaled: boolean;
   fraction: number;
+  foresight: number;
   trends: Trends;
 };
 
@@ -43,6 +46,7 @@ export type HorizonResult = {
   window: ShiftWindow;
   unpublished: boolean;
   fraction: number;
+  foresight: number;
   fromKwh: number;
 };
 
@@ -80,9 +84,10 @@ function hh(h: number): string {
   return `${String(h).padStart(2, "0")}:00`;
 }
 
-function honesty(fraction: number): string {
+function honesty(fraction: number, foresight: number): string {
   const pct = Math.round(fraction * 100);
-  return `That treats about ${pct}% of the expensive-hour spike as movable, not heat or always-on load.`;
+  const seen = Math.round(foresight * 100);
+  return `That treats about ${pct}% of the expensive-hour spike as movable, not heat or always-on load. Counted at ${seen}% of perfect foresight, because day-ahead prices are a forecast.`;
 }
 
 function quantile(sorted: number[], q: number): number {
@@ -186,10 +191,11 @@ export function yearSaving(
   usage: HourPoint[],
   spots: SpotPoint[],
   dso: Dso,
-  opts: { markup?: number; fraction?: number } = {},
+  opts: { markup?: number; fraction?: number; foresight?: number } = {},
 ): YearResult {
   const markup = opts.markup ?? DEFAULT_MARKUP;
   const fraction = opts.fraction ?? DEFAULT_FRACTION;
+  const foresight = opts.foresight ?? DEFAULT_FORESIGHT;
   const spotMap = new Map(spots.map((s) => [s.key, s.spot]));
   const byDay = new Map<string, { kwh: number; price: number; hour: number }[]>();
 
@@ -215,6 +221,7 @@ export function yearSaving(
       days: 0,
       scaled: false,
       fraction,
+      foresight,
       trends,
     };
   }
@@ -246,15 +253,15 @@ export function yearSaving(
 
   const days = byDay.size;
   const scaled = days < YEAR_DAYS;
-  const dkk = roundDkk(scaled ? (raw * YEAR_DAYS) / days : raw);
+  const dkk = roundDkk((scaled ? (raw * YEAR_DAYS) / days : raw) * foresight);
   const fromHrs = topHours(fromHits);
   const toHrs = topHours(toHits);
   const from = formatHours(fromHrs);
   const to = formatHours(toHrs);
   const scaleNote = scaled ? ` (scaled from ${days} day${days === 1 ? "" : "s"})` : "";
   const move = from && to ? ` by moving usage from ${from} to ${to}` : "";
-  const headline = `Last year you could have saved DKK ${dkk}${scaleNote}${move}. ${honesty(fraction)}`;
-  return { headline, dkk, from, to, days, scaled, fraction, trends };
+  const headline = `Last year you could have saved DKK ${dkk}${scaleNote}${move}. ${honesty(fraction, foresight)}`;
+  return { headline, dkk, from, to, days, scaled, fraction, foresight, trends };
 }
 
 function topHours(hits: Map<number, number>): number[] {
@@ -288,7 +295,7 @@ function clockOn(key: HourKey, today: string): string {
   return dateOf(key) === today ? clock : `${clock} tomorrow`;
 }
 
-function emptyHorizon(unpublished: boolean, window: ShiftWindow, fraction: number, extra?: string): HorizonResult {
+function emptyHorizon(unpublished: boolean, window: ShiftWindow, fraction: number, foresight: number, extra?: string): HorizonResult {
   const when = unpublished
     ? "Tomorrow's prices are not published yet (~13:00)."
     : window === "today"
@@ -305,6 +312,7 @@ function emptyHorizon(unpublished: boolean, window: ShiftWindow, fraction: numbe
     window,
     unpublished,
     fraction,
+    foresight,
     fromKwh: 0,
   };
 }
@@ -314,15 +322,16 @@ export function horizonShift(
   usage: HourPoint[],
   spots: SpotPoint[],
   dso: Dso,
-  opts: { today: string; markup?: number; fraction?: number; unpublished?: boolean },
+  opts: { today: string; markup?: number; fraction?: number; foresight?: number; unpublished?: boolean },
 ): HorizonResult {
   const markup = opts.markup ?? DEFAULT_MARKUP;
   const fraction = opts.fraction ?? DEFAULT_FRACTION;
+  const foresight = opts.foresight ?? DEFAULT_FORESIGHT;
   const unpublished = opts.unpublished ?? false;
   const dates = new Set(spots.map((s) => dateOf(s.key)));
   const window: ShiftWindow = dates.size > 1 ? "horizon" : "today";
 
-  if (!spots.length) return emptyHorizon(unpublished, window, fraction);
+  if (!spots.length) return emptyHorizon(unpublished, window, fraction, foresight);
 
   const shapes = new Map<number, Map<number, number>>();
   const shapeOf = (date: string) => {
@@ -340,7 +349,7 @@ export function horizonShift(
     kwh: shapeOf(dateOf(s.key)).get(hourOf(s.key)),
   }));
   const loads = [...shapes.values()].flatMap((s) => [...s.values()]);
-  if (!loads.length) return emptyHorizon(unpublished, window, fraction);
+  if (!loads.length) return emptyHorizon(unpublished, window, fraction, foresight);
   const baseline = median(loads);
 
   let best = { y: 0, from: "", to: "", kwh: 0 };
@@ -358,9 +367,9 @@ export function horizonShift(
   const wait = unpublished ? "Tomorrow's prices are not published yet (~13:00). " : "";
   const scope = window === "horizon" ? "From now through tomorrow you can save" : "For the rest of today you can save";
 
-  if (!best.from || roundDkk(best.y) <= 0) {
+  if (!best.from || roundDkk(best.y * foresight) <= 0) {
     return {
-      ...emptyHorizon(unpublished, window, fraction, `No useful shift in this window; prices are flat or the usual spike is already cheap.`),
+      ...emptyHorizon(unpublished, window, fraction, foresight, `No useful shift in this window; prices are flat or the usual spike is already cheap.`),
       headline: `${wait}No useful shift ${window === "horizon" ? "from now through tomorrow" : "later today"}; prices are flat or the usual spike is already cheap.`,
     };
   }
@@ -381,9 +390,9 @@ export function horizonShift(
       throw new Error(String(_n));
     }
   }
-  const dkk = roundDkk(best.y);
+  const dkk = roundDkk(best.y * foresight);
   return {
-    headline: `${wait}${scope} DKK ${dkk} by ${move}. ${honesty(fraction)}`,
+    headline: `${wait}${scope} DKK ${dkk} by ${move}. ${honesty(fraction, foresight)}`,
     dkk,
     from,
     to,
@@ -393,6 +402,7 @@ export function horizonShift(
     window,
     unpublished,
     fraction,
+    foresight,
     fromKwh: Math.round(best.kwh * 1000) / 1000,
   };
 }

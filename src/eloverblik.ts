@@ -1,7 +1,7 @@
 import { homedir } from "node:os";
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { DEFAULT_FRACTION, DEFAULT_MARKUP, type Dso, type HourPoint } from "./analyze.ts";
+import { DEFAULT_FORESIGHT, DEFAULT_FRACTION, DEFAULT_MARKUP, type Dso, type HourPoint } from "./analyze.ts";
 import type { PriceArea } from "./prices.ts";
 
 const API = "https://api.eloverblik.dk/customerapi/api";
@@ -25,6 +25,7 @@ export type Config = {
   area?: PriceArea;
   markup: number;
   fraction: number;
+  foresight: number;
 };
 
 type Kv = Record<string, string>;
@@ -76,6 +77,7 @@ export function loadConfig(): Config {
     area,
     markup: envNum("EL_MCP_MARKUP", DEFAULT_MARKUP),
     fraction: envNum("EL_MCP_MOVE_FRACTION", DEFAULT_FRACTION),
+    foresight: envNum("EL_MCP_FORESIGHT", DEFAULT_FORESIGHT),
   };
 }
 

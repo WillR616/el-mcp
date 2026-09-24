@@ -155,7 +155,7 @@ export function createServer(): McpServer {
     },
     guard(async () => {
       const { cfg, usage, spots, dso } = await loadYear();
-      return json(yearSaving(usage, spots, dso, { markup: cfg.markup, fraction: cfg.fraction }));
+      return json(yearSaving(usage, spots, dso, { markup: cfg.markup, fraction: cfg.fraction, foresight: cfg.foresight }));
     }),
   );
 
@@ -197,6 +197,7 @@ export function createServer(): McpServer {
           today,
           markup: cfg.markup,
           fraction: cfg.fraction,
+          foresight: cfg.foresight,
           unpublished,
         }),
       );
@@ -231,6 +232,7 @@ export function createServer(): McpServer {
               "Move:",
               "- tomorrow_shift.direction is push_back (later) or pull_forward (earlier). Use that verb. Name the clocks.",
               "- fromKwh is the movable lump at the expensive hour — a fraction of the spike above weekday-typical baseload, not the whole house.",
+              "- The kroner are already discounted (foresight, default 85%) because day-ahead forecasts are not perfect foresight. Quote that clause. EL_MCP_FORESIGHT changes it.",
               "- Heat, fridge, standby stay put. Dishwasher, laundry, EV, water tank, a delayed oven are the usual movers.",
               "",
               "Routines — only if the hours match; do not invent a lifestyle:",

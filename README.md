@@ -1,6 +1,6 @@
 # el-mcp
 
-Two sentences about Danish household electricity.
+Two sentences about Danish household electricity, and an overview of your past year of usage by the hour.
 
 **Past:** Last year you could have saved DKK X by moving usage from [these hours] to [those hours].
 
@@ -25,6 +25,6 @@ or in `.env` as the same key. Never commit it.
 { "mcpServers": { "el": { "command": "node", "args": ["--env-file-if-exists=.env", "src/stdio.ts"], "cwd": "/Users/you/dev/side/el-mcp" } } }
 ```
 
-Ask for the two sentences. `usage` returns actual kWh for a short range when someone asks what the meter did. `setup` checks the token; `pick_meter` chooses the import meter.
+Ask for the two sentences and/or for past usage. `usage` returns actual kWh for a short range when someone asks what the meter did. `setup` checks the token; `pick_meter` chooses the import meter.
 
-Optional: `EL_MCP_MARKUP` (default `0.08` DKK/kWh excl. VAT), `EL_MCP_MOVE_FRACTION` (default `0.4` of the expensive-hour spike).
+Optional: `EL_MCP_MARKUP` (default `0.08` DKK/kWh excl. VAT), `EL_MCP_MOVE_FRACTION` (default `0.4` of the expensive-hour spike), `EL_MCP_FORESIGHT` (default `0.85`, the share of the perfect-foresight saving that is quoted).

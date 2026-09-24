@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  DEFAULT_FORESIGHT,
   DEFAULT_FRACTION,
   retailPrice,
   formatHours,
@@ -52,11 +53,25 @@ test("A: expensive-hour spike rebilled at that day's cheap hours, then scaled", 
   const perDay = 0.64 * (pExp - pCheap);
   assert.equal(got.days, 2);
   assert.equal(got.scaled, true);
-  assert.equal(got.dkk, Math.round((perDay * 2 * 365) / 2));
+  assert.equal(got.dkk, Math.round(((perDay * 2 * 365) / 2) * DEFAULT_FORESIGHT));
+  assert.equal(got.foresight, DEFAULT_FORESIGHT);
   assert.equal(got.from, "19:00");
   assert.equal(got.to, "02:00");
   assert.match(got.headline, /^Last year you could have saved DKK \d+ \(scaled from 2 days\) by moving usage from 19:00 to 02:00\./);
   assert.match(got.headline, /40%/);
+  assert.match(got.headline, /85% of perfect foresight/);
+});
+
+test("A: foresight 1 is the undiscounted saving", () => {
+  const a = spikeDay("2024-01-01");
+  const b = spikeDay("2024-01-02");
+  const usage = [...a.usage, ...b.usage];
+  const spots = [...a.spots, ...b.spots];
+  const full = yearSaving(usage, spots, DSO0, { foresight: 1 });
+  const perDay = 0.64 * (retailPrice(2.0, 0) - retailPrice(0.2, 0));
+  assert.equal(full.dkk, Math.round((perDay * 2 * 365) / 2));
+  assert.equal(full.foresight, 1);
+  assert.match(full.headline, /100% of perfect foresight/);
 });
 
 test("A: empty usage is missing data, not a zero-krone year", () => {
@@ -129,7 +144,8 @@ test("B: best from→to is a push-back of the spike", () => {
   ];
   const got = horizonShift(tuesdays({ 12: 0.4, 19: 2.0, 22: 0.4 }), spots, DSO0, { today: date });
   const y = (2.0 - 0.4) * DEFAULT_FRACTION * (retailPrice(2.0, 0) - retailPrice(0.1, 0));
-  assert.equal(got.dkk, Math.round(y));
+  assert.equal(got.dkk, Math.round(y * DEFAULT_FORESIGHT));
+  assert.match(got.headline, /85% of perfect foresight/);
   assert.equal(got.from, "19:00");
   assert.equal(got.to, "22:00");
   assert.equal(got.direction, "push_back");
