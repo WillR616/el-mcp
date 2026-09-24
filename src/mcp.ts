@@ -16,6 +16,7 @@ import {
   type Meter,
 } from "./eloverblik.ts";
 import { fetchSpots, isDayPublished, remainingHorizon, type PriceArea } from "./prices.ts";
+import { addDate as shiftDate, lastCompleteRange, sliceUsage, type UsageGrain } from "./usage.ts";
 
 export const VERSION = "0.1.0";
 
@@ -86,6 +87,7 @@ export function createServer(): McpServer {
         "365 hourly days. Daily, weekly and annual shapes are the insight; the two headlines are the kroner.",
         "Now: published window only — rest of today before ~13:00; rest of today plus tomorrow after day-ahead. Never invent hours past the feed.",
         "Say push back or pull forward. Heat and baseload stay put. Empty range is missing data, not zero use.",
+        "usage is actual kWh for a short range when asked. It is not the tonight move.",
         "Never mention price area, DSO, tariff, VAT, or weather you do not have.",
       ].join(" "),
     },
@@ -158,6 +160,28 @@ export function createServer(): McpServer {
   );
 
   server.registerTool(
+    "usage",
+    {
+      title: "Actual usage",
+      description:
+        "Metered kWh for a short inclusive date range. Day grain by default; hour for at most 14 days. Not the tonight move, and not a year dump. Missing hours are absent, not zero.",
+      inputSchema: {
+        from: z.string().optional().describe("Inclusive start YYYY-MM-DD. Default: 7 complete days before the last metered day."),
+        to: z.string().optional().describe("Inclusive end YYYY-MM-DD. Default: last complete metered day."),
+        grain: z.enum(["day", "hour"]).optional().describe("day (default) or hour."),
+      },
+    },
+    guard(async ({ from, to, grain }) => {
+      const { usage } = await loadYear();
+      const def = lastCompleteRange(usage);
+      const start = from ?? (to ? shiftDate(to, -6) : def.from);
+      const end = to ?? def.to;
+      const g: UsageGrain = grain ?? "day";
+      return json(sliceUsage(usage, start, end, g));
+    }),
+  );
+
+  server.registerTool(
     "tomorrow_shift",
     {
       title: "Horizon shift",
@@ -197,6 +221,7 @@ export function createServer(): McpServer {
               "1. setup if the token is unchecked. pick_meter if no consumption meter is selected.",
               "2. year_saving and tomorrow_shift. Both use the past 365 hourly days. Quote the headlines. Do not dump raw hours.",
               "3. Read year_saving.trends: daily (hour-of-day), weekly (0=Sun), annual (YYYY-MM). That is the insight.",
+              "4. usage only when asked what the meter actually did on a day or over a range. It is kWh, not the tonight move, and not a way to rebuild the year. Hour grain is at most 14 days. Empty hours are missing data, not zero use.",
               "",
               "Window (this is the data, not a vibe):",
               "- Day-ahead is one auction. Before ~13:00 Copenhagen, tomorrow is not out. Suggest only on the rest of today (~11–24h). Say that tomorrow is not published.",

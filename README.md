@@ -25,6 +25,6 @@ or in `.env` as the same key. Never commit it.
 { "mcpServers": { "el": { "command": "node", "args": ["--env-file-if-exists=.env", "src/stdio.ts"], "cwd": "/Users/you/dev/side/el-mcp" } } }
 ```
 
-Ask for the two sentences. `setup` checks the token; `pick_meter` chooses the import meter.
+Ask for the two sentences. `usage` returns actual kWh for a short range when someone asks what the meter did. `setup` checks the token; `pick_meter` chooses the import meter.
 
 Optional: `EL_MCP_MARKUP` (default `0.08` DKK/kWh excl. VAT), `EL_MCP_MOVE_FRACTION` (default `0.4` of the expensive-hour spike).
